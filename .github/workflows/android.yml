@@ -13,17 +13,17 @@ jobs:
       # 1. Kodları Çek
       - uses: actions/checkout@v4
 
-      # 2. Node.js Motorunu 22 Yap (Guncelleme Burada!)
+      # 2. Node.js Motorunu 22 Yap
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
-      # 3. Java 17 Kur
-      - name: Set up JDK 17
+      # 3. Java 21 Kur (GÜNCELLENEN KISIM BURASI!)
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
       # 4. Kütüphaneleri Yükle ve Pişir
