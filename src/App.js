@@ -117,31 +117,34 @@ function CameraScreen() {
     }
   };
 
+  // ANALİZ GÖNDERME (YENİ BASE64 VERSİYONU)
   const sendToServer = async () => {
     if (!imgSrc) return;
     setLoading(true);
     try {
-      // Base64'ten Blob üretme
-      const resBlob = await fetch(imgSrc);
-      const blob = await resBlob.blob();
-      
-      const formData = new FormData();
-      formData.append('file', blob, "upload.jpg");
-      formData.append('study', study);
-      formData.append('hid', hid);
-      formData.append('conc', "0");
+      // Blob oluşturmakla UĞRAŞMAYACAĞIZ. 
+      // imgSrc zaten "data:image/jpeg;base64,..." şeklinde bir yazıdır.
+      // Bunu direkt JSON olarak gönderiyoruz.
 
-      // İstek gönderiliyor
-      console.log(`İstek atılıyor: http://${ip}:8000/analyze`);
-      const res = await axios.post(`http://${ip}:8000/analyze`, formData, {
+      const payload = {
+        image: imgSrc, // Fotoğrafın kendisi (yazı formatında)
+        study: study,
+        hid: hid
+      };
+
+      console.log(`İstek atılıyor: http://${ip}:8000/analyze_base64`);
+      
+      // İçerik tipi artık multipart/form-data değil, application/json (En sorunsuz yöntem)
+      const res = await axios.post(`http://${ip}:8000/analyze_base64`, payload, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
         }
       });
       
       const data = res.data;
       setResult(data);
 
+      // --- GEÇMİŞE KAYDETME ---
       const newRecord = {
         date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
         ratio: data.ratio,
@@ -155,7 +158,7 @@ function CameraScreen() {
 
     } catch (error) {
       console.error(error);
-      alert(`HATA OLUŞTU!\n\n1. IP Doğru mu? (${ip})\n2. Sunucu açık mı?\n3. Bilgisayar Firewall kapalı mı?\n\nHata Detayı: ${error.message}`);
+      alert(`HATA OLUŞTU!\n\nIP: ${ip}\nHata: ${error.message}\n\nEğer Network Error alıyorsan, sunucudaki yeni kodu başlattığından emin ol.`);
     } finally {
       setLoading(false);
     }
