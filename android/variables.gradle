@@ -1,13 +1,13 @@
 ext {
     minSdkVersion = 24
-    compileSdkVersion = 34
-    targetSdkVersion = 34
+    compileSdkVersion = 35    // <-- 34'tü, 35 yaptık (Dondurma için)
+    targetSdkVersion = 35     // <-- 34'tü, 35 yaptık
     androidxActivityVersion = '1.8.0'
     androidxAppCompatVersion = '1.6.1'
     androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxCoreVersion = '1.12.0'
+    androidxCoreVersion = '1.12.0'      // (Bunu zaten düşürmüştük, kalsın)
     androidxFragmentVersion = '1.6.2'
-    coreSplashScreenVersion = '1.0.1'  // <-- Asıl suçlu buydu, düzelttik
+    coreSplashScreenVersion = '1.0.1'   // (Bunu da düşürmüştük, kalsın)
     androidxWebkitVersion = '1.9.0'
     junitVersion = '4.13.2'
     androidxJunitVersion = '1.1.5'
