@@ -13,24 +13,37 @@ jobs:
       # 1. Kodları Çek
       - uses: actions/checkout@v4
 
-      # 2. Java 17 Kur (Android İnşaatı için şart)
+      # 2. Node.js (Javascript Motoru) Kur
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      # 3. Java 17 Kur
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # 3. Android Dosyasına İzin Ver
+      # 4. Gerekli Kütüphaneleri Yükle ve React'i Pişir
+      - name: Install Dependencies & Build
+        run: |
+          npm install
+          npm run build
+          npx cap sync android
+
+      # 5. Android Dosyasına İzin Ver
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
-      # 4. APK'yı Derle (Gradle Kullanarak)
+      # 6. APK'yı Derle
       - name: Build with Gradle
         run: |
           cd android
           ./gradlew assembleDebug
 
-      # 5. APK'yı Yükle
+      # 7. APK'yı Yükle
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
