@@ -1,8 +1,8 @@
-// BU SATIR ÇOK ÖNEMLİ, UNUTMUŞUZ! (Değişkenleri buradan okuyor)
+// Değişkenleri Yükle
 apply from: 'variables.gradle'
 
 buildscript {
-    // Kotlin sürümünü buradan sabitliyoruz
+    // KOMUTANIN EMRİ: Sürüm 1.9.10 olacak!
     ext.kotlin_version = '1.9.10'
     
     repositories {
@@ -21,6 +21,19 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    // --- SIKIYÖNETİM BAŞLANGICI ---
+    // Burası "Ben eskiden 1.6 kullanıyordum" diyen kütüphaneleri susturur.
+    subprojects {
+        project.configurations.all {
+            resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == 'org.jetbrains.kotlin' && details.requested.name.startsWith('kotlin-stdlib')) {
+                    details.useVersion rootProject.ext.kotlin_version
+                }
+            }
+        }
+    }
+    // --- SIKIYÖNETİM BİTİŞİ ---
 }
 
 task clean(type: Delete) {
