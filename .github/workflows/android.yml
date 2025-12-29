@@ -1,0 +1,38 @@
+name: React APK Yapici
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Kodları Çek
+      - uses: actions/checkout@v4
+
+      # 2. Java 17 Kur (Android İnşaatı için şart)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. Android Dosyasına İzin Ver
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      # 4. APK'yı Derle (Gradle Kullanarak)
+      - name: Build with Gradle
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      # 5. APK'yı Yükle
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LFA-React-App
+          path: android/app/build/outputs/apk/debug/app-debug.apk
