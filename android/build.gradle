@@ -1,24 +1,18 @@
-// Top-level build file where you can add configuration options common to all sub-projects/modules.
+// BU SATIR ÇOK ÖNEMLİ, UNUTMUŞUZ! (Değişkenleri buradan okuyor)
+apply from: 'variables.gradle'
 
 buildscript {
-    // KOTLIN SÜRÜMÜNÜ BURADAN SABİTLİYORUZ (Çakışmayı önleyen yer burası)
-    ext.kotlin_version = '1.9.10' 
+    // Kotlin sürümünü buradan sabitliyoruz
+    ext.kotlin_version = '1.9.10'
     
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        // Android Gradle Plugin (En güncel ve kararlı sürüm)
         classpath 'com.android.tools.build:gradle:8.2.1'
-        
-        // Kotlin Gradle Plugin (Yukarıdaki sürümü kullanacak)
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        
-        // Google Services (Standart)
         classpath 'com.google.gms:google-services:4.4.0'
-
-        // NOT: Sakın buraya başka classpath ekleme, Capacitor kendisi halleder.
     }
 }
 
