@@ -1,88 +1,212 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from "react-webcam";
 import axios from 'axios';
+import { HashRouter as Router, Routes, Route, useNavigate, Link } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
-function App() {
+// --- STİL & TEMA AYARLARI ---
+const theme = {
+  bg: "bg-black",
+  card: "bg-dark",
+  text: "text-white",
+  accent: "text-success"
+};
+
+// --- 1. BİLEŞEN: ANA SAYFA (HOŞGELDİN EKRANI) ---
+function HomeScreen() {
+  return (
+    <div className={`min-vh-100 d-flex flex-column align-items-center justify-content-center ${theme.bg} ${theme.text} p-4`}>
+      <div className="text-center mb-5">
+        <i className={`bi bi-activity ${theme.accent}`} style={{ fontSize: '4rem' }}></i>
+        <h1 className="fw-bold mt-3 display-4">LFA AI</h1>
+        <p className="text-muted">Hızlı Tanı ve Analiz Sistemi</p>
+      </div>
+
+      <div className="d-grid gap-3 w-100" style={{ maxWidth: '350px' }}>
+        <Link to="/camera" className="btn btn-success btn-lg py-3 rounded-pill fw-bold shadow">
+          <i className="bi bi-camera-fill me-2"></i> YENİ TEST YAP
+        </Link>
+        
+        {/* Galeriden Yükleme Özelliği Kameranın İçinde de Var Ama Buraya da Ekledik */}
+        <Link to="/history" className="btn btn-secondary btn-lg py-3 rounded-pill fw-bold border-secondary">
+          <i className="bi bi-clock-history me-2"></i> TEST GEÇMİŞİ
+        </Link>
+      </div>
+
+      <div className="mt-5 text-muted small">v1.0.0 • Tolga Erdoğan</div>
+    </div>
+  );
+}
+
+// --- 2. BİLEŞEN: GEÇMİŞ SAYFASI ---
+function HistoryScreen() {
+  const [history, setHistory] = useState([]);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Telefon hafızasından geçmişi çek
+    const saved = JSON.parse(localStorage.getItem('lfa_history') || '[]');
+    setHistory(saved);
+  }, []);
+
+  const clearHistory = () => {
+    if(window.confirm("Tüm geçmiş silinecek?")) {
+      localStorage.removeItem('lfa_history');
+      setHistory([]);
+    }
+  };
+
+  return (
+    <div className={`min-vh-100 ${theme.bg} ${theme.text} p-3`}>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <button onClick={() => navigate('/')} className="btn btn-dark rounded-circle"><i className="bi bi-arrow-left"></i></button>
+        <h4 className="m-0">Geçmiş Sonuçlar</h4>
+        <button onClick={clearHistory} className="btn btn-danger btn-sm rounded-circle"><i className="bi bi-trash"></i></button>
+      </div>
+
+      {history.length === 0 ? (
+        <div className="text-center text-muted mt-5">
+          <i className="bi bi-inbox display-1"></i>
+          <p className="mt-3">Henüz kayıtlı test yok.</p>
+        </div>
+      ) : (
+        <div className="list-group list-group-flush rounded">
+          {history.map((item, idx) => (
+            <div key={idx} className="list-group-item bg-dark text-white border-secondary mb-2 rounded p-3">
+              <div className="d-flex justify-content-between align-items-start">
+                <div>
+                  <h5 className="mb-1 text-success fw-bold">{item.ratio} Ratio</h5>
+                  <small className="text-muted">{item.study} - {item.hid}</small>
+                </div>
+                <small className="text-muted">{item.date}</small>
+              </div>
+              <div className="progress mt-2" style={{height: '6px'}}>
+                 <div className="progress-bar bg-success" style={{width: `${Math.min(parseFloat(item.ratio)*100, 100)}%`}}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- 3. BİLEŞEN: KAMERA VE ANALİZ ---
+function CameraScreen() {
   const webcamRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const navigate = useNavigate();
+
   const [imgSrc, setImgSrc] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
 
-  const [ip, setIp] = useState("192.168.1.36"); // Senin IP'yi buraya varsayılan yazabilirsin
-  const [study, setStudy] = useState("LFA_Proje");
-  const [hid, setHid] = useState("Numune_01");
+  // Ayarlar
+  const [ip, setIp] = useState("192.168.1.36"); 
+  const [study, setStudy] = useState("Proje_A");
+  const [hid, setHid] = useState("N01");
 
-  // --- EKRAN AYARLARI (Can Alıcı Kısım) ---
   const videoConstraints = {
-    facingMode: "environment", // Arka Kamera
-    // Genişlik ve yükseklik ayarını serbest bırakıyoruz ki CSS ile ezelim
+    facingMode: "environment"
   };
 
+  // FOTOĞRAF ÇEKME
   const capture = useCallback(() => {
     const imageSrc = webcamRef.current.getScreenshot();
     setImgSrc(imageSrc);
   }, [webcamRef]);
+
+  // GALERİDEN YÜKLEME
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImgSrc(reader.result); // Base64 olarak set et
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // ANALİZ GÖNDERME
+  const sendToServer = async () => {
+    if (!imgSrc) return;
+    setLoading(true);
+    try {
+      const resBlob = await fetch(imgSrc);
+      const blob = await resBlob.blob();
+      const formData = new FormData();
+      formData.append('file', blob, "upload.jpg");
+      formData.append('study', study);
+      formData.append('hid', hid);
+      formData.append('conc', "0");
+
+      const res = await axios.post(`http://${ip}:8000/analyze`, formData);
+      const data = res.data;
+      setResult(data);
+
+      // --- GEÇMİŞE KAYDETME ---
+      const newRecord = {
+        date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString(),
+        ratio: data.ratio,
+        c_val: data.c_val,
+        t_val: data.t_val,
+        study: study,
+        hid: hid
+      };
+      const currentHistory = JSON.parse(localStorage.getItem('lfa_history') || '[]');
+      localStorage.setItem('lfa_history', JSON.stringify([newRecord, ...currentHistory]));
+
+    } catch (error) {
+      alert("Hata: " + error.message + "\nIP adresini kontrol et.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const retake = () => {
     setImgSrc(null);
     setResult(null);
   };
 
-  const sendToServer = async () => {
-    if (!imgSrc) return;
-    setLoading(true);
-    try {
-      // Blob formatına çevir
-      const response = await fetch(imgSrc);
-      const blob = await response.blob();
-      const formData = new FormData();
-      formData.append('file', blob, "analyze.jpg");
-      formData.append('study', study);
-      formData.append('hid', hid);
-      formData.append('conc', "0");
-
-      // Sunucuya Yolla
-      const res = await axios.post(`http://${ip}:8000/analyze`, formData);
-      setResult(res.data);
-    } catch (error) {
-      alert("Hata: Sunucuya ulaşılamadı. IP adresini ve server.py'ın açık olduğunu kontrol et.\nDetay: " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- SONUÇ EKRANI ---
+  // --- SONUÇ EKRANI (İÇ BİLEŞEN) ---
   if (result) {
     return (
-      <div className="d-flex flex-column align-items-center justify-content-center min-vh-100 bg-dark text-white p-3">
+      <div className={`d-flex flex-column align-items-center justify-content-center min-vh-100 ${theme.bg} ${theme.text} p-3`}>
         <div className="card bg-secondary text-white shadow-lg w-100" style={{ maxWidth: '400px', borderRadius: '20px' }}>
-          <div className="card-header bg-success text-center py-3" style={{ borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
-            <h3 className="m-0"><i className="bi bi-check-circle-fill"></i> Analiz Tamamlandı</h3>
+           <div className="card-header bg-success text-center py-3 position-relative" style={{ borderTopLeftRadius: '20px', borderTopRightRadius: '20px' }}>
+            <button onClick={() => navigate('/')} className="btn btn-sm btn-light bg-opacity-25 border-0 position-absolute start-0 top-0 m-3 text-white">
+                <i className="bi bi-house-fill"></i>
+            </button>
+            <h3 className="m-0">Sonuç</h3>
           </div>
-          <div className="card-body p-4">
-            <div className="text-center mb-4">
-              <h5 className="text-light opacity-75">{study}</h5>
-              <h2 className="fw-bold">{hid}</h2>
-            </div>
-            {/* Sonuç Barları */}
-            <div className="mb-3">
-              <div className="d-flex justify-content-between"><span>Kontrol (C)</span><span className="fw-bold">{result.c_val}</span></div>
-              <div className="progress" style={{ height: '10px' }}><div className="progress-bar bg-info" style={{ width: `${Math.min(result.c_val, 100)}%` }}></div></div>
-            </div>
-            <div className="mb-4">
-              <div className="d-flex justify-content-between"><span>Test (T)</span><span className="fw-bold">{result.t_val}</span></div>
-              <div className="progress" style={{ height: '10px' }}><div className="progress-bar bg-warning" style={{ width: `${Math.min(result.t_val, 100)}%` }}></div></div>
-            </div>
-            {/* Ratio Kutusu */}
-            <div className="bg-dark rounded p-3 text-center border border-secondary mb-4">
-              <span className="d-block text-muted small">T/C ORANI</span>
-              <h1 className="display-4 fw-bold text-success m-0">{result.ratio}</h1>
-            </div>
-            <button className="btn btn-outline-light w-100 py-3 rounded-pill fw-bold" onClick={retake}>
+          <div className="card-body p-4 text-center">
+             <h6 className="text-light opacity-75">{study} / {hid}</h6>
+             <h1 className="display-3 fw-bold text-success my-4">{result.ratio}</h1>
+             
+             {/* Detaylar */}
+             <div className="row g-2 mb-4">
+                <div className="col-6">
+                    <div className="bg-dark p-2 rounded">
+                        <small className="d-block text-muted">Kontrol (C)</small>
+                        <span className="fw-bold fs-5">{result.c_val}</span>
+                    </div>
+                </div>
+                <div className="col-6">
+                    <div className="bg-dark p-2 rounded">
+                        <small className="d-block text-muted">Test (T)</small>
+                        <span className="fw-bold fs-5">{result.t_val}</span>
+                    </div>
+                </div>
+             </div>
+
+            <button className="btn btn-light w-100 py-3 rounded-pill fw-bold text-dark mb-2" onClick={retake}>
               <i className="bi bi-camera-fill me-2"></i> YENİ TEST
+            </button>
+            <button className="btn btn-outline-light w-100 py-2 rounded-pill" onClick={() => navigate('/history')}>
+              GEÇMİŞE GİT
             </button>
           </div>
         </div>
@@ -90,87 +214,84 @@ function App() {
     );
   }
 
-  // --- KAMERA EKRANI ---
+  // --- KAMERA ARAYÜZÜ ---
   return (
     <div className="bg-black min-vh-100 d-flex flex-column position-relative overflow-hidden">
-      
       {/* Üst Bar */}
-      <div className="d-flex justify-content-between align-items-center p-3 text-white position-absolute top-0 start-0 w-100" style={{ zIndex: 20, background: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent)' }}>
-        <h5 className="m-0"><i className="bi bi-activity text-success"></i> LFA AI</h5>
-        <button className="btn btn-sm btn-dark rounded-circle border border-secondary" onClick={() => setShowSettings(!showSettings)}>
-          <i className="bi bi-gear-fill"></i>
-        </button>
+      <div className="d-flex justify-content-between align-items-center p-3 position-absolute top-0 w-100" style={{zIndex:20, background: 'linear-gradient(rgba(0,0,0,0.8), transparent)'}}>
+        <button onClick={() => navigate('/')} className="btn btn-sm btn-dark rounded-circle"><i className="bi bi-arrow-left"></i></button>
+        <button className="btn btn-sm btn-dark rounded-circle" onClick={() => setShowSettings(!showSettings)}><i className="bi bi-gear-fill"></i></button>
       </div>
 
-      {/* Ayarlar Menüsü */}
+      {/* Ayarlar */}
       {showSettings && (
-        <div className="position-absolute top-0 start-0 w-100 bg-dark p-3 text-white border-bottom border-secondary" style={{ zIndex: 30, marginTop: '60px' }}>
-          <div className="row g-2">
-            <div className="col-12"><input type="text" className="form-control form-control-sm bg-secondary text-white border-0" placeholder="Sunucu IP" value={ip} onChange={e => setIp(e.target.value)} /></div>
-            <div className="col-6"><input type="text" className="form-control form-control-sm bg-secondary text-white border-0" placeholder="Çalışma Adı" value={study} onChange={e => setStudy(e.target.value)} /></div>
-            <div className="col-6"><input type="text" className="form-control form-control-sm bg-secondary text-white border-0" placeholder="Numune ID" value={hid} onChange={e => setHid(e.target.value)} /></div>
-          </div>
-        </div>
+         <div className="position-absolute w-100 bg-dark p-3 text-white" style={{zIndex:30, top:'60px'}}>
+             <div className="row g-2">
+                 <div className="col-12"><input type="text" className="form-control form-control-sm bg-secondary text-white border-0" placeholder="IP" value={ip} onChange={e=>setIp(e.target.value)} /></div>
+                 <div className="col-6"><input type="text" className="form-control form-control-sm bg-secondary text-white border-0" placeholder="Çalışma" value={study} onChange={e=>setStudy(e.target.value)} /></div>
+                 <div className="col-6"><input type="text" className="form-control form-control-sm bg-secondary text-white border-0" placeholder="ID" value={hid} onChange={e=>setHid(e.target.value)} /></div>
+             </div>
+         </div>
       )}
 
-      {/* KAMERA ALANI (Tam Ekran Zorlama) */}
+      {/* Kamera Alanı */}
       <div className="flex-grow-1 position-relative d-flex align-items-center justify-content-center bg-black">
         {imgSrc ? (
-          <img src={imgSrc} alt="Captured" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={imgSrc} alt="Preview" style={{width:'100%', height:'100%', objectFit:'contain'}} />
         ) : (
-          <Webcam
-            audio={false}
-            ref={webcamRef}
-            screenshotFormat="image/jpeg"
-            videoConstraints={videoConstraints}
-            forceScreenshotSourceSize={true}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover', // Ekrana sığdırma, doldur
-            }}
-          />
-        )}
-        
-        {/* Yeşil Hedef Kutusu */}
-        {!imgSrc && (
-          <div style={{
-            position: 'absolute', width: '70%', height: '25%',
-            border: '3px solid #00ff00', borderRadius: '15px',
-            boxShadow: '0 0 20px rgba(0, 255, 0, 0.4)',
-            zIndex: 10,
-            pointerEvents: 'none'
-          }}>
-             <div className="position-absolute start-50 translate-middle-x bg-black bg-opacity-50 px-3 py-1 rounded text-white small" style={{bottom: '-40px', whiteSpace: 'nowrap'}}>
-               Kaseti Çerçeveye Hizala
-             </div>
-          </div>
+            <>
+                <Webcam
+                    audio={false}
+                    ref={webcamRef}
+                    screenshotFormat="image/jpeg"
+                    videoConstraints={videoConstraints}
+                    style={{position:'absolute', width:'100%', height:'100%', objectFit:'cover'}}
+                />
+                <div style={{position:'absolute', width:'70%', height:'25%', border:'3px solid #00ff00', borderRadius:'15px', boxShadow:'0 0 20px rgba(0,255,0,0.4)', pointerEvents:'none'}}></div>
+            </>
         )}
       </div>
 
       {/* Alt Kontrol Barı */}
-      <div className="position-absolute bottom-0 start-0 w-100 p-4 d-flex justify-content-center align-items-center" 
-           style={{ zIndex: 20, background: 'linear-gradient(to top, rgba(0,0,0,0.9), transparent)', minHeight: '150px' }}>
-        {!imgSrc ? (
-          <button onClick={capture} className="btn btn-light rounded-circle border-4 border-secondary shadow-lg d-flex align-items-center justify-content-center" 
-            style={{ width: '80px', height: '80px' }}>
-            <div className="bg-danger rounded-circle" style={{ width: '64px', height: '64px' }}></div>
-          </button>
-        ) : (
-          <div className="d-flex gap-3 w-100 px-3">
-             <button onClick={retake} className="btn btn-dark bg-opacity-75 flex-grow-1 py-3 rounded-pill fw-bold border border-secondary">
-              <i className="bi bi-arrow-counterclockwise"></i> TEKRAR
-            </button>
-            <button onClick={sendToServer} disabled={loading} className="btn btn-success flex-grow-1 py-3 rounded-pill fw-bold shadow">
-              {loading ? <span className="spinner-border spinner-border-sm"></span> : <span><i className="bi bi-send-fill me-2"></i> ANALİZ</span>}
-            </button>
-          </div>
-        )}
+      <div className="p-4 d-flex justify-content-center align-items-center position-absolute bottom-0 w-100" style={{zIndex:20, background: 'linear-gradient(transparent, rgba(0,0,0,0.9))', minHeight:'120px'}}>
+         {!imgSrc ? (
+             <div className="d-flex align-items-center gap-4">
+                 {/* Galeri Butonu (Gizli input tetikler) */}
+                 <button className="btn btn-dark rounded-circle border border-secondary" style={{width:'50px', height:'50px'}} onClick={() => fileInputRef.current.click()}>
+                     <i className="bi bi-image"></i>
+                 </button>
+                 <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileUpload} style={{display:'none'}} />
+
+                 {/* Çekme Butonu */}
+                 <button onClick={capture} className="btn btn-light rounded-circle border-4 border-secondary d-flex align-items-center justify-content-center shadow-lg" style={{width:'80px', height:'80px'}}>
+                     <div className="bg-danger rounded-circle" style={{width:'60px', height:'60px'}}></div>
+                 </button>
+                 
+                 <div style={{width:'50px'}}></div> {/* Hizalama için boşluk */}
+             </div>
+         ) : (
+            <div className="d-flex gap-3 w-100">
+                <button onClick={retake} className="btn btn-secondary flex-grow-1 py-3 rounded-pill fw-bold">TEKRAR</button>
+                <button onClick={sendToServer} disabled={loading} className="btn btn-success flex-grow-1 py-3 rounded-pill fw-bold">
+                    {loading ? '...' : 'ANALİZ ET'}
+                </button>
+            </div>
+         )}
       </div>
     </div>
+  );
+}
+
+// --- ANA UYGULAMA (ROUTER) ---
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<HomeScreen />} />
+        <Route path="/camera" element={<CameraScreen />} />
+        <Route path="/history" element={<HistoryScreen />} />
+      </Routes>
+    </Router>
   );
 }
 
